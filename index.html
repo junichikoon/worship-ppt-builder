@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>예배 PPT 빌더</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="editorView" class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">P</span>
+          <div>
+            <h1>예배 PPT 빌더</h1>
+            <p id="projectSummary">0개 모듈 · 0장</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span id="authBadge" class="auth-badge">로그인 전</span>
+          <button id="saveTemplateBtn" class="action-button secondary" type="button">
+            템플릿 저장
+          </button>
+          <button id="generatePptBtn" class="action-button primary" type="button">
+            PPT 생성
+          </button>
+          <button id="shareBtn" class="action-button secondary" type="button">
+            공유하기
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <nav class="side-nav" aria-label="주 메뉴">
+          <button class="nav-item active" type="button" data-menu="builder">
+            <span aria-hidden="true">＋</span>
+            <strong>제작</strong>
+          </button>
+          <button class="nav-item" type="button" data-menu="templates">
+            <span aria-hidden="true">▦</span>
+            <strong>템플릿</strong>
+          </button>
+          <button class="nav-item" type="button" data-menu="settings">
+            <span aria-hidden="true">⚙</span>
+            <strong>설정</strong>
+          </button>
+          <button class="nav-item disabled" type="button" data-menu="my">
+            <span aria-hidden="true">M</span>
+            <strong>My</strong>
+          </button>
+        </nav>
+
+        <aside class="module-panel" aria-label="모듈 설정">
+          <div id="builderPanel" class="builder-panel">
+            <div class="panel-header">
+              <div class="template-name-block">
+                <p class="eyebrow">제작</p>
+                <input id="templateNameField" class="template-name-field" type="text" value="새로운 템플릿" aria-label="템플릿 이름" />
+              </div>
+              <button id="panelSaveTemplateBtn" class="ghost-button" type="button">템플릿 저장</button>
+            </div>
+
+            <section class="modules-area" aria-label="모듈 목록">
+              <div class="section-title-row">
+                <h3>모듈</h3>
+                <div class="module-title-actions">
+                  <span id="moduleCount" class="count-chip">0</span>
+                  <button id="resetDemoBtn" class="ghost-button compact" type="button">초기화</button>
+                </div>
+              </div>
+              <div id="moduleList" class="module-list"></div>
+            </section>
+
+            <section class="add-modules" aria-label="모듈 추가">
+              <h3>모듈 추가</h3>
+              <div class="add-grid">
+                <button type="button" data-add-type="praise">찬양</button>
+                <button type="button" data-add-type="hymn">찬송가</button>
+                <button type="button" data-add-type="bible">성경</button>
+                <button type="button" data-add-type="sermon">설교</button>
+                <button type="button" data-add-type="announcement">광고</button>
+                <button type="button" data-add-type="custom">커스텀</button>
+              </div>
+            </section>
+          </div>
+
+          <section id="templateBrowser" class="template-browser hidden" aria-label="템플릿">
+            <div class="panel-header template-browser-header">
+              <div>
+                <p class="eyebrow">템플릿</p>
+                <h2>템플릿</h2>
+              </div>
+            </div>
+            <div id="templateListPanel" class="template-list-panel"></div>
+          </section>
+
+          <section id="settingsPanel" class="settings-panel hidden" aria-label="설정">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">설정</p>
+                <h2>PPT 설정</h2>
+              </div>
+            </div>
+
+            <div class="settings-content">
+              <section class="settings-section">
+                <button class="settings-section-toggle" type="button" aria-expanded="true">
+                  <span>PPT 비율</span>
+                  <span aria-hidden="true">⌃</span>
+                </button>
+                <div class="settings-section-body">
+                  <div class="settings-segmented" role="group" aria-label="PPT 비율">
+                    <button id="aspectWideBtn" type="button" data-aspect-ratio="16:9">16:9</button>
+                    <button id="aspectStandardBtn" type="button" data-aspect-ratio="4:3">4:3</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-section">
+                <button class="settings-section-toggle" type="button" aria-expanded="true">
+                  <span>로고</span>
+                  <span aria-hidden="true">⌃</span>
+                </button>
+                <div class="settings-section-body">
+                  <label class="logo-upload-box">
+                    <input id="logoUploadInput" type="file" accept="image/*" />
+                    <span id="logoUploadLabel">이미지 업로드</span>
+                  </label>
+                  <div id="logoPreviewBox" class="logo-preview-box" aria-label="로고 미리보기"></div>
+                  <div class="position-grid" role="group" aria-label="로고 위치">
+                    <button type="button" data-logo-position="top-left">좌상단</button>
+                    <button type="button" data-logo-position="top-right">우상단</button>
+                    <button type="button" data-logo-position="bottom-left">좌하단</button>
+                    <button type="button" data-logo-position="bottom-right">우하단</button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+        </aside>
+
+        <section class="preview-pane" aria-label="미리보기">
+          <div class="preview-header">
+            <div>
+              <p class="eyebrow">미리보기</p>
+              <h2 id="previewTitle">슬라이드</h2>
+            </div>
+            <div id="slideCounter" class="slide-counter">0 / 0</div>
+          </div>
+
+          <div class="slide-stage-wrap">
+            <article id="slideStage" class="slide-stage" aria-label="현재 슬라이드"></article>
+          </div>
+
+          <div class="thumbnail-strip-wrap" aria-label="슬라이드 선택">
+            <div id="thumbnailStrip" class="thumbnail-strip"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <section id="loginView" class="login-view hidden" aria-label="로그인">
+      <div class="login-panel">
+        <div class="login-copy">
+          <p class="eyebrow">계정</p>
+          <h2>로그인</h2>
+          <p>작업 내용은 브라우저에 유지됩니다.</p>
+        </div>
+        <form id="loginForm" class="login-form">
+          <label>
+            이메일
+            <input id="emailInput" name="email" type="email" autocomplete="email" value="demo@church.test" required />
+          </label>
+          <label>
+            비밀번호
+            <input id="passwordInput" name="password" type="password" autocomplete="current-password" value="demo1234" required />
+          </label>
+          <button class="action-button primary" type="submit">로그인</button>
+          <button id="backToEditorBtn" class="ghost-button" type="button">돌아가기</button>
+        </form>
+      </div>
+    </section>
+
+    <div id="templateModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="templateModalTitle">
+      <div class="modal">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">템플릿</p>
+            <h2 id="templateModalTitle">템플릿 저장</h2>
+          </div>
+          <button id="closeTemplateModalBtn" class="icon-button" type="button" aria-label="닫기">×</button>
+        </div>
+        <label class="modal-field">
+          템플릿 이름
+          <input id="templateNameInput" type="text" />
+        </label>
+        <div class="modal-actions">
+          <button id="confirmTemplateSaveBtn" class="action-button primary" type="button">저장</button>
+          <button id="cancelTemplateSaveBtn" class="ghost-button" type="button">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="shareModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+      <div class="modal share-modal">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">공유</p>
+            <h2 id="shareModalTitle">공유하기</h2>
+          </div>
+          <button id="closeShareModalBtn" class="icon-button" type="button" aria-label="닫기">×</button>
+        </div>
+        <div class="share-summary">
+          <strong id="shareTemplateName">새로운 템플릿</strong>
+          <span id="shareTemplateMeta">0개 모듈 · 0장</span>
+        </div>
+        <label class="modal-field">
+          공유 링크
+          <input id="shareLinkInput" type="text" value="https://city-light-ppt.local/share/demo" readonly />
+        </label>
+        <div class="modal-actions">
+          <button id="copyShareLinkBtn" class="action-button primary" type="button">링크 복사</button>
+          <button id="cancelShareBtn" class="ghost-button" type="button">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
