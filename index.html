@@ -57,7 +57,10 @@
                 <p class="eyebrow">제작</p>
                 <input id="templateNameField" class="template-name-field" type="text" value="새로운 템플릿" aria-label="템플릿 이름" />
               </div>
-              <button id="panelSaveTemplateBtn" class="ghost-button" type="button">템플릿 저장</button>
+              <button id="panelSaveTemplateBtn" class="ghost-button panel-save-template-button" type="button">
+                <span>템플릿</span>
+                <span>저장</span>
+              </button>
             </div>
 
             <section class="modules-area" aria-label="모듈 목록">
@@ -110,8 +113,14 @@
                 </button>
                 <div class="settings-section-body">
                   <div class="settings-segmented" role="group" aria-label="PPT 비율">
-                    <button id="aspectWideBtn" type="button" data-aspect-ratio="16:9">16:9</button>
-                    <button id="aspectStandardBtn" type="button" data-aspect-ratio="4:3">4:3</button>
+                    <button id="aspectWideBtn" type="button" data-aspect-ratio="16:9">
+                      <span class="aspect-shape aspect-shape-wide" aria-hidden="true"></span>
+                      <span>16:9</span>
+                    </button>
+                    <button id="aspectStandardBtn" type="button" data-aspect-ratio="4:3">
+                      <span class="aspect-shape aspect-shape-standard" aria-hidden="true"></span>
+                      <span>4:3</span>
+                    </button>
                   </div>
                 </div>
               </section>
@@ -122,16 +131,42 @@
                   <span aria-hidden="true">⌃</span>
                 </button>
                 <div class="settings-section-body">
-                  <label class="logo-upload-box">
-                    <input id="logoUploadInput" type="file" accept="image/*" />
-                    <span id="logoUploadLabel">이미지 업로드</span>
-                  </label>
-                  <div id="logoPreviewBox" class="logo-preview-box" aria-label="로고 미리보기"></div>
-                  <div class="position-grid" role="group" aria-label="로고 위치">
-                    <button type="button" data-logo-position="top-left">좌상단</button>
-                    <button type="button" data-logo-position="top-right">우상단</button>
-                    <button type="button" data-logo-position="bottom-left">좌하단</button>
-                    <button type="button" data-logo-position="bottom-right">우하단</button>
+                  <div class="logo-toggle" role="group" aria-label="로고 이미지 사용 여부">
+                    <button id="logoOnBtn" type="button" data-logo-enabled="true">ON</button>
+                    <button id="logoOffBtn" type="button" data-logo-enabled="false">OFF</button>
+                  </div>
+                  <div id="logoSettingsDetail" class="logo-settings-detail hidden">
+                    <div class="settings-field-block">
+                      <span class="settings-field-title">로고 이미지 삽입</span>
+                      <div class="logo-action-row">
+                        <label class="logo-upload-button">
+                          <input id="logoUploadInput" type="file" accept="image/*" />
+                          <span id="logoUploadLabel">이미지 삽입</span>
+                        </label>
+                        <button id="logoDeleteBtn" class="logo-delete-button hidden" type="button">삭제</button>
+                      </div>
+                    </div>
+                    <div id="logoCurrentBlock" class="settings-field-block hidden">
+                      <span class="settings-field-title">현재 로고 이미지</span>
+                      <div id="logoPreviewBox" class="logo-preview-box" aria-label="로고 미리보기"></div>
+                    </div>
+                    <div class="settings-field-block">
+                      <span class="settings-field-title">로고 위치</span>
+                      <div class="logo-position-picker" role="group" aria-label="로고 위치">
+                        <button type="button" data-logo-position="top-left" aria-label="좌상단">
+                          <span class="logo-position-dot top-left" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" data-logo-position="top-right" aria-label="우상단">
+                          <span class="logo-position-dot top-right" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" data-logo-position="bottom-left" aria-label="좌하단">
+                          <span class="logo-position-dot bottom-left" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" data-logo-position="bottom-right" aria-label="우하단">
+                          <span class="logo-position-dot bottom-right" aria-hidden="true"></span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>

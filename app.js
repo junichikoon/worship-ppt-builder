@@ -36,6 +36,12 @@
     { name: "흰색", value: "#FFFFFF" },
   ];
 
+  const TEXT_ALIGN_OPTIONS = [
+    { name: "왼쪽 정렬", value: "left" },
+    { name: "가운데 정렬", value: "center" },
+    { name: "오른쪽 정렬", value: "right" },
+  ];
+
   const CUSTOM_CONTENT_PRESETS = [
     {
       id: "apostles-creed",
@@ -295,8 +301,13 @@
       "templateListPanel",
       "aspectWideBtn",
       "aspectStandardBtn",
+      "logoOnBtn",
+      "logoOffBtn",
+      "logoSettingsDetail",
       "logoUploadInput",
       "logoUploadLabel",
+      "logoDeleteBtn",
+      "logoCurrentBlock",
       "logoPreviewBox",
       "generatePptBtn",
       "shareBtn",
@@ -411,22 +422,25 @@
       letterSpacing: 0,
       fontWeight: 800,
       textColor: "#FFFFFF",
+      textAlign: "center",
       background: COLORS.black,
     };
   }
 
-  function defaultSermonTextStyle(size, weight) {
+  function defaultSermonTextStyle(size, weight, textAlign = "left") {
     return {
       fontFamily: "Georgia",
       fontSize: size,
       fontWeight: weight,
       textColor: "#000000",
+      textAlign,
     };
   }
 
   function defaultPresentationSettings() {
     return {
       aspectRatio: "16:9",
+      logoEnabled: false,
       logoDataUrl: "",
       logoPosition: DEFAULT_LOGO_POSITION,
     };
@@ -506,9 +520,9 @@
         customContentTitle: CUSTOM_CONTENT_PRESETS[0].title,
         customContentText: CUSTOM_CONTENT_PRESETS[0].content,
         customPresetId: CUSTOM_CONTENT_PRESETS[0].id,
-        customTitleStyle: defaultSermonTextStyle(64, 700),
-        customSubtitleStyle: defaultSermonTextStyle(32, 400),
-        customContentTitleStyle: defaultSermonTextStyle(46, 700),
+        customTitleStyle: defaultSermonTextStyle(64, 700, "center"),
+        customSubtitleStyle: defaultSermonTextStyle(32, 400, "center"),
+        customContentTitleStyle: defaultSermonTextStyle(46, 700, "center"),
         customContentBodyStyle: defaultSermonTextStyle(38, 400),
         style: {
           ...defaultStyle(),
@@ -746,6 +760,9 @@
     if (!["16:9", "4:3"].includes(state.presentationSettings.aspectRatio)) {
       state.presentationSettings.aspectRatio = "16:9";
     }
+    if (typeof state.presentationSettings.logoEnabled !== "boolean") {
+      state.presentationSettings.logoEnabled = Boolean(state.presentationSettings.logoDataUrl);
+    }
     if (!["top-left", "top-right", "bottom-left", "bottom-right"].includes(state.presentationSettings.logoPosition)) {
       state.presentationSettings.logoPosition = DEFAULT_LOGO_POSITION;
     }
@@ -768,10 +785,15 @@
     const settings = getPresentationSettings();
     els.aspectWideBtn.classList.toggle("active", settings.aspectRatio === "16:9");
     els.aspectStandardBtn.classList.toggle("active", settings.aspectRatio === "4:3");
+    els.logoOnBtn.classList.toggle("active", settings.logoEnabled);
+    els.logoOffBtn.classList.toggle("active", !settings.logoEnabled);
+    els.logoSettingsDetail.classList.toggle("hidden", !settings.logoEnabled);
     els.settingsPanel.querySelectorAll("[data-logo-position]").forEach((button) => {
       button.classList.toggle("active", button.dataset.logoPosition === settings.logoPosition);
     });
-    els.logoUploadLabel.textContent = settings.logoDataUrl ? "로고 이미지 변경" : "이미지 업로드";
+    els.logoUploadLabel.textContent = settings.logoDataUrl ? "변경" : "이미지 삽입";
+    els.logoDeleteBtn.classList.toggle("hidden", !settings.logoDataUrl);
+    els.logoCurrentBlock.classList.toggle("hidden", !settings.logoDataUrl);
     els.logoPreviewBox.innerHTML = settings.logoDataUrl
       ? `<img src="${escapeAttr(settings.logoDataUrl)}" alt="업로드한 로고" />`
       : `<span>로고 없음</span>`;
@@ -974,6 +996,7 @@
             </label>
           </div>
         </div>
+        ${renderTextAlignControls(style.textAlign, "left", (align) => `data-sermon-text-align="${align}" data-sermon-style-scope="${scope}" data-module-id="${module.id}"`)}
       `,
     });
   }
@@ -1061,6 +1084,7 @@
             </label>
           </div>
         </div>
+        ${renderTextAlignControls(style.textAlign, "left", (align) => `data-ad-text-align="${align}" data-ad-style-scope="${scope}" data-announcement-id="${item.id}" data-module-id="${module.id}"`)}
       `,
     });
   }
@@ -1199,8 +1223,51 @@
             </label>
           </div>
         </div>
+        ${renderTextAlignControls(style.textAlign, customDefaultAlign(scope), (align) => `data-custom-text-align="${align}" data-custom-style-scope="${scope}" data-module-id="${module.id}"`)}
       `,
     });
+  }
+
+  function renderTextAlignControls(value, fallback, attrsForAlign) {
+    const activeAlign = normalizeTextAlign(value, fallback);
+    return `
+      <div class="text-align-row">
+        <span class="control-label">글자 정렬</span>
+        <div class="color-swatch-row text-align-button-row">
+          ${TEXT_ALIGN_OPTIONS.map(
+            (option) => `
+              <button class="color-swatch text-align-choice ${activeAlign === option.value ? "active" : ""}" type="button" ${attrsForAlign(option.value)} aria-label="${option.name}">
+                <span class="text-align-icon align-${option.value}" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span>
+                </span>
+              </button>
+            `
+          ).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function normalizeTextAlign(value, fallback = "center") {
+    return TEXT_ALIGN_OPTIONS.some((option) => option.value === value) ? value : fallback;
+  }
+
+  function textAlignToJustify(value, fallback = "center") {
+    const align = normalizeTextAlign(value, fallback);
+    if (align === "left") return "flex-start";
+    if (align === "right") return "flex-end";
+    return "center";
+  }
+
+  function textAlignToPpt(value, fallback = "center") {
+    const align = normalizeTextAlign(value, fallback);
+    if (align === "left") return "l";
+    if (align === "right") return "r";
+    return "ctr";
+  }
+
+  function customDefaultAlign(scope) {
+    return scope === "customContentBodyStyle" ? "left" : "center";
   }
 
   function renderSongControls(module, list) {
@@ -1427,6 +1494,7 @@
             </label>
           </div>
         </div>
+        ${renderTextAlignControls(module.style.textAlign, "center", (align) => `data-text-align="${align}" data-module-id="${module.id}"`)}
         `,
       })}
       ${renderBackgroundControls(module)}
@@ -1476,12 +1544,12 @@
   }
 
   function renderSlideFrame(content, compact = false) {
-    return `${content}${renderLogoOverlay(compact)}`;
+    return `${renderLogoOverlay(compact)}${content}`;
   }
 
   function renderLogoOverlay(compact = false) {
     const settings = getPresentationSettings();
-    if (!settings.logoDataUrl) return "";
+    if (!settings.logoEnabled || !settings.logoDataUrl) return "";
     const position = ["top-left", "top-right", "bottom-left", "bottom-right"].includes(settings.logoPosition)
       ? settings.logoPosition
       : DEFAULT_LOGO_POSITION;
@@ -1529,7 +1597,7 @@
     applySlideStyle(els.slideStage, slide.style);
     const previewFontSize = ((Number(slide.style.fontSize) || 44) / 1020) * 100;
     els.slideStage.innerHTML = renderSlideFrame(`
-      <div class="slide-content" style="font-family:${escapeAttr(slide.style.fontFamily)}; font-size:clamp(12px, ${previewFontSize.toFixed(3)}cqw, ${slide.style.fontSize}px); line-height:${slide.style.lineHeight}; font-weight:${slide.style.fontWeight}; letter-spacing:${Number(slide.style.letterSpacing || 0)}px;">
+      <div class="slide-content" style="font-family:${escapeAttr(slide.style.fontFamily)}; font-size:clamp(12px, ${previewFontSize.toFixed(3)}cqw, ${slide.style.fontSize}px); line-height:${slide.style.lineHeight}; font-weight:${slide.style.fontWeight}; letter-spacing:${Number(slide.style.letterSpacing || 0)}px; text-align:${normalizeTextAlign(slide.style.textAlign, "center")};">
         ${slide.lines.map((line) => `<span class="slide-line">${escapeHtml(line)}</span>`).join("")}
       </div>
     `);
@@ -1559,7 +1627,7 @@
                 ? `<div class="thumb-preview" style="background:${escapeAttr(toCssBackground(slide.style.background))};">${renderSlideFrame(renderAnnouncementSlideContent(slide, true), true)}</div>`
               : slide.kind === "custom-title" || slide.kind === "custom-content"
                 ? `<div class="thumb-preview" style="background:${escapeAttr(toCssBackground(slide.style.background))};">${renderSlideFrame(renderCustomSlideContent(slide, true), true)}</div>`
-              : `<div class="thumb-preview" style="background:${escapeAttr(toCssBackground(slide.style.background))}; color:${slide.style.textColor}; font-family:${escapeAttr(slide.style.fontFamily)};">${renderSlideFrame(`<span>${escapeHtml(firstLine)}</span>`, true)}</div>`;
+              : `<div class="thumb-preview" style="background:${escapeAttr(toCssBackground(slide.style.background))}; color:${slide.style.textColor}; font-family:${escapeAttr(slide.style.fontFamily)}; text-align:${normalizeTextAlign(slide.style.textAlign, "center")};">${renderSlideFrame(`<span>${escapeHtml(firstLine)}</span>`, true)}</div>`;
             return `
               <button class="thumb ${slide.id === state.selectedSlideId ? "active" : ""}" type="button" data-slide-id="${slide.id}" data-module-id="${slide.moduleId}" title="${escapeAttr(firstLine)}">
                 ${preview}
@@ -1732,8 +1800,8 @@
       <div class="sermon-slide-content ${compact ? "compact" : ""}">
         <span class="sermon-divider" aria-hidden="true"></span>
         <div class="sermon-text-stack">
-          <span class="sermon-series" style="font-family:${escapeAttr(slide.seriesStyle.fontFamily)}; font-size:${seriesFontSize}; font-weight:${slide.seriesStyle.fontWeight}; color:${slide.seriesStyle.textColor};">${escapeHtml(slide.sermonSeries)}</span>
-          <span class="sermon-title" style="font-family:${escapeAttr(slide.titleStyle.fontFamily)}; font-size:${titleFontSize}; font-weight:${slide.titleStyle.fontWeight}; color:${slide.titleStyle.textColor};">${escapeHtml(slide.sermonTitle)}</span>
+          <span class="sermon-series" style="font-family:${escapeAttr(slide.seriesStyle.fontFamily)}; font-size:${seriesFontSize}; font-weight:${slide.seriesStyle.fontWeight}; color:${slide.seriesStyle.textColor}; text-align:${normalizeTextAlign(slide.seriesStyle.textAlign, "left")};">${escapeHtml(slide.sermonSeries)}</span>
+          <span class="sermon-title" style="font-family:${escapeAttr(slide.titleStyle.fontFamily)}; font-size:${titleFontSize}; font-weight:${slide.titleStyle.fontWeight}; color:${slide.titleStyle.textColor}; text-align:${normalizeTextAlign(slide.titleStyle.textAlign, "left")};">${escapeHtml(slide.sermonTitle)}</span>
         </div>
       </div>
     `;
@@ -1777,8 +1845,8 @@
     return `
       <article class="announcement-row" style="background:${escapeAttr(boxColor)};">
         <span class="announcement-number" style="background:${escapeAttr(circleColor)}; color:${escapeAttr(numberColor)};">${String(index + 1).padStart(2, "0")}</span>
-        <strong class="announcement-row-title" style="font-family:${escapeAttr(titleStyle.fontFamily)}; font-size:${titleFontSize}; font-weight:${titleStyle.fontWeight}; color:${escapeAttr(titleStyle.textColor)};">${escapeHtml(item.title)}</strong>
-        <p class="announcement-row-detail" style="font-family:${escapeAttr(detailStyle.fontFamily)}; font-size:${detailFontSize}; font-weight:${detailStyle.fontWeight}; color:${escapeAttr(detailStyle.textColor)};">${escapeHtml(item.detail).replace(/\n/g, "<br>")}</p>
+        <strong class="announcement-row-title" style="font-family:${escapeAttr(titleStyle.fontFamily)}; font-size:${titleFontSize}; font-weight:${titleStyle.fontWeight}; color:${escapeAttr(titleStyle.textColor)}; text-align:${normalizeTextAlign(titleStyle.textAlign, "left")};">${escapeHtml(item.title)}</strong>
+        <p class="announcement-row-detail" style="font-family:${escapeAttr(detailStyle.fontFamily)}; font-size:${detailFontSize}; font-weight:${detailStyle.fontWeight}; color:${escapeAttr(detailStyle.textColor)}; text-align:${normalizeTextAlign(detailStyle.textAlign, "left")};">${escapeHtml(item.detail).replace(/\n/g, "<br>")}</p>
       </article>
     `;
   }
@@ -1805,9 +1873,9 @@
       const bodyStyle = slide.customContentBodyStyle || getCustomStyleFallback("customContentBodyStyle");
       return `
         <div class="custom-slide-content custom-content-slide ${compact ? "compact" : ""}">
-          <h3 style="font-family:${escapeAttr(titleStyle.fontFamily)}; font-size:${customFontSize(titleStyle, compact, 5.1)}; font-weight:${titleStyle.fontWeight}; color:${escapeAttr(titleStyle.textColor)};">${escapeHtml(slide.customContentTitle)}</h3>
+          <h3 style="font-family:${escapeAttr(titleStyle.fontFamily)}; font-size:${customFontSize(titleStyle, compact, 5.1)}; font-weight:${titleStyle.fontWeight}; color:${escapeAttr(titleStyle.textColor)}; text-align:${normalizeTextAlign(titleStyle.textAlign, "center")};">${escapeHtml(slide.customContentTitle)}</h3>
           <div class="custom-content-box">
-            <p style="font-family:${escapeAttr(bodyStyle.fontFamily)}; font-size:${customFontSize(bodyStyle, compact, 4.3)}; font-weight:${bodyStyle.fontWeight}; color:${escapeAttr(bodyStyle.textColor)};">${escapeHtml(slide.customContentText).replace(/\n/g, "<br>")}</p>
+            <p style="font-family:${escapeAttr(bodyStyle.fontFamily)}; font-size:${customFontSize(bodyStyle, compact, 4.3)}; font-weight:${bodyStyle.fontWeight}; color:${escapeAttr(bodyStyle.textColor)}; text-align:${normalizeTextAlign(bodyStyle.textAlign, "left")};">${escapeHtml(slide.customContentText).replace(/\n/g, "<br>")}</p>
           </div>
         </div>
       `;
@@ -1820,12 +1888,12 @@
         <span class="custom-dove" aria-hidden="true"></span>
         <span class="custom-silhouette" aria-hidden="true"></span>
         <div class="custom-title-lockup">
-          <div class="custom-title-bracket">
+          <div class="custom-title-bracket" style="justify-content:${textAlignToJustify(titleStyle.textAlign, "center")};">
             <span aria-hidden="true">[</span>
             <strong style="font-family:${escapeAttr(titleStyle.fontFamily)}; font-size:${customFontSize(titleStyle, compact, 5.6)}; font-weight:${titleStyle.fontWeight}; color:${escapeAttr(titleStyle.textColor)};">${escapeHtml(slide.customTitle)}</strong>
             <span aria-hidden="true">]</span>
           </div>
-          <p style="font-family:${escapeAttr(subtitleStyle.fontFamily)}; font-size:${customFontSize(subtitleStyle, compact, 4.8)}; font-weight:${subtitleStyle.fontWeight}; color:${escapeAttr(subtitleStyle.textColor)};">${escapeHtml(slide.customSubtitle)}</p>
+          <p style="font-family:${escapeAttr(subtitleStyle.fontFamily)}; font-size:${customFontSize(subtitleStyle, compact, 4.8)}; font-weight:${subtitleStyle.fontWeight}; color:${escapeAttr(subtitleStyle.textColor)}; text-align:${normalizeTextAlign(subtitleStyle.textAlign, "center")};">${escapeHtml(slide.customSubtitle)}</p>
         </div>
       </div>
     `;
@@ -1940,13 +2008,13 @@
 
   function getCustomStyleFallback(scope) {
     const defaults = {
-      customTitleStyle: [64, 700],
-      customSubtitleStyle: [32, 400],
-      customContentTitleStyle: [46, 700],
-      customContentBodyStyle: [38, 400],
+      customTitleStyle: [64, 700, "center"],
+      customSubtitleStyle: [32, 400, "center"],
+      customContentTitleStyle: [46, 700, "center"],
+      customContentBodyStyle: [38, 400, "left"],
     };
-    const [size, weight] = defaults[scope] || [36, 400];
-    return defaultSermonTextStyle(size, weight);
+    const [size, weight, textAlign] = defaults[scope] || [36, 400, "left"];
+    return defaultSermonTextStyle(size, weight, textAlign);
   }
 
   function getModuleName(module) {
@@ -2034,6 +2102,21 @@
       return;
     }
 
+    const logoEnabledButton = event.target.closest("[data-logo-enabled]");
+    if (logoEnabledButton) {
+      state.presentationSettings.logoEnabled = logoEnabledButton.dataset.logoEnabled === "true";
+      render();
+      return;
+    }
+
+    const logoDeleteButton = event.target.closest("#logoDeleteBtn");
+    if (logoDeleteButton) {
+      state.presentationSettings.logoDataUrl = "";
+      render();
+      showToast("로고를 삭제했습니다.");
+      return;
+    }
+
     const positionButton = event.target.closest("[data-logo-position]");
     if (positionButton) {
       state.presentationSettings.logoPosition = positionButton.dataset.logoPosition;
@@ -2052,6 +2135,7 @@
     const reader = new FileReader();
     reader.addEventListener("load", () => {
       state.presentationSettings.logoDataUrl = String(reader.result || "");
+      state.presentationSettings.logoEnabled = true;
       state.presentationSettings.logoPosition = state.presentationSettings.logoPosition || DEFAULT_LOGO_POSITION;
       event.target.value = "";
       render();
@@ -2398,6 +2482,17 @@
       return;
     }
 
+    const textAlign = event.target.closest("[data-text-align]");
+    if (textAlign) {
+      const module = findModule(textAlign.dataset.moduleId);
+      if (!module) return;
+      module.style.textAlign = normalizeTextAlign(textAlign.dataset.textAlign, "center");
+      state.selectedModuleId = module.id;
+      state.selectedSlideId = currentSlides.find((slide) => slide.moduleId === module.id)?.id || "";
+      render();
+      return;
+    }
+
     const sermonTextColor = event.target.closest("[data-sermon-text-color]");
     if (sermonTextColor) {
       const module = findModule(sermonTextColor.dataset.moduleId);
@@ -2406,6 +2501,20 @@
       const fallback = scope === "titleStyle" ? defaultSermonTextStyle(64, 800) : defaultSermonTextStyle(34, 500);
       module[scope] = module[scope] || fallback;
       module[scope].textColor = sermonTextColor.dataset.sermonTextColor;
+      state.selectedModuleId = module.id;
+      state.selectedSlideId = `${module.id}-slide-0`;
+      render();
+      return;
+    }
+
+    const sermonTextAlign = event.target.closest("[data-sermon-text-align]");
+    if (sermonTextAlign) {
+      const module = findModule(sermonTextAlign.dataset.moduleId);
+      if (!module) return;
+      const scope = sermonTextAlign.dataset.sermonStyleScope;
+      const fallback = scope === "titleStyle" ? defaultSermonTextStyle(64, 800) : defaultSermonTextStyle(34, 500);
+      module[scope] = module[scope] || fallback;
+      module[scope].textAlign = normalizeTextAlign(sermonTextAlign.dataset.sermonTextAlign, "left");
       state.selectedModuleId = module.id;
       state.selectedSlideId = `${module.id}-slide-0`;
       render();
@@ -2426,6 +2535,20 @@
       return;
     }
 
+    const customTextAlign = event.target.closest("[data-custom-text-align]");
+    if (customTextAlign) {
+      const module = findModule(customTextAlign.dataset.moduleId);
+      if (!module) return;
+      ensureCustomModule(module);
+      const scope = customTextAlign.dataset.customStyleScope;
+      module[scope] = module[scope] || getCustomStyleFallback(scope);
+      module[scope].textAlign = normalizeTextAlign(customTextAlign.dataset.customTextAlign, customDefaultAlign(scope));
+      state.selectedModuleId = module.id;
+      state.selectedSlideId = `${module.id}-slide-0`;
+      render();
+      return;
+    }
+
     const announcementTextColor = event.target.closest("[data-ad-text-color]");
     if (announcementTextColor) {
       const module = findModule(announcementTextColor.dataset.moduleId);
@@ -2435,6 +2558,21 @@
       const fallback = scope === "titleStyle" ? defaultSermonTextStyle(32, 800) : defaultSermonTextStyle(22, 400);
       item[scope] = item[scope] || fallback;
       item[scope].textColor = announcementTextColor.dataset.adTextColor;
+      state.selectedModuleId = module.id;
+      state.selectedSlideId = `${module.id}-slide-1`;
+      render();
+      return;
+    }
+
+    const announcementTextAlign = event.target.closest("[data-ad-text-align]");
+    if (announcementTextAlign) {
+      const module = findModule(announcementTextAlign.dataset.moduleId);
+      const item = findAnnouncementItem(module, announcementTextAlign.dataset.announcementId);
+      if (!module || !item) return;
+      const scope = announcementTextAlign.dataset.adStyleScope;
+      const fallback = scope === "titleStyle" ? defaultSermonTextStyle(32, 800) : defaultSermonTextStyle(22, 400);
+      item[scope] = item[scope] || fallback;
+      item[scope].textAlign = normalizeTextAlign(announcementTextAlign.dataset.adTextAlign, "left");
       state.selectedModuleId = module.id;
       state.selectedSlideId = `${module.id}-slide-1`;
       render();
@@ -2916,7 +3054,7 @@
   function createPptxBlob(slides) {
     const files = {};
     const presentationSettings = getPresentationSettings();
-    const logoAsset = dataUrlToImageAsset(presentationSettings.logoDataUrl, "global-logo");
+    const logoAsset = presentationSettings.logoEnabled ? dataUrlToImageAsset(presentationSettings.logoDataUrl, "global-logo") : null;
     const slideImages = slides.map((slide, index) => {
       const slideNumber = index + 1;
       return {
@@ -2953,8 +3091,8 @@
       };
       const imageRels = {
         background: addImageRelationship(images.background),
-        content: addImageRelationship(images.content),
         logo: addImageRelationship(logoAsset),
+        content: addImageRelationship(images.content),
       };
       files[`ppt/slides/slide${index + 1}.xml`] = slideXml(slide, index + 1, imageRels);
       files[`ppt/slides/_rels/slide${index + 1}.xml.rels`] = slideRelsXml(relationships);
@@ -3047,8 +3185,8 @@
     <p:spTree>
       ${groupShapeXml()}
       ${imageRels.background ? imageBackgroundXml(imageRels.background, index) : ""}
-      ${contentShape}
       ${imageRels.logo ? logoImageXml(imageRels.logo, index) : ""}
+      ${contentShape}
     </p:spTree>
   </p:cSld>
   <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
@@ -3083,8 +3221,9 @@
     const font = escapeXml(style.fontFamily || "Malgun Gothic");
     const lineHeight = Math.round(Number(style.lineHeight || 1.18) * 100000);
     const letterSpacing = Math.round(Number(style.letterSpacing || 0) * 1000);
+    const align = textAlignToPpt(style.textAlign, "center");
     return `<a:p>
-  <a:pPr algn="ctr"><a:lnSpc><a:spcPct val="${lineHeight}"/></a:lnSpc></a:pPr>
+  <a:pPr algn="${align}"><a:lnSpc><a:spcPct val="${lineHeight}"/></a:lnSpc></a:pPr>
   <a:r>
     <a:rPr lang="ko-KR" sz="${size}" b="${bold}" spc="${letterSpacing}" dirty="0">
       <a:solidFill><a:srgbClr val="${color}"/></a:solidFill>
@@ -3117,6 +3256,7 @@
     const size = Math.round(Number(style.fontSize || 44) * 100);
     const bold = Number(style.fontWeight) >= 700 ? "1" : "0";
     const font = escapeXml(style.fontFamily || "Georgia");
+    const align = textAlignToPpt(style.textAlign, "left");
     return `<p:sp>
         <p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
         <p:spPr>
@@ -3128,7 +3268,7 @@
           <a:bodyPr wrap="square" anchor="ctr" rtlCol="0"><a:spAutoFit/></a:bodyPr>
           <a:lstStyle/>
           <a:p>
-            <a:pPr algn="l"/>
+            <a:pPr algn="${align}"/>
             <a:r>
               <a:rPr lang="ko-KR" sz="${size}" b="${bold}" dirty="0">
                 <a:solidFill><a:srgbClr val="${color}"/></a:solidFill>
@@ -3222,11 +3362,12 @@
     const size = Math.round(Number(style.fontSize || 24) * 100);
     const bold = Number(style.fontWeight) >= 700 ? "1" : "0";
     const font = escapeXml(style.fontFamily || "Georgia");
+    const pptAlign = style.textAlign ? textAlignToPpt(style.textAlign, align === "ctr" ? "center" : align === "r" ? "right" : "left") : align;
     const paragraphs = String(text || " ")
       .split(/\n/g)
       .map(
         (line) => `<a:p>
-            <a:pPr algn="${align}"/>
+            <a:pPr algn="${pptAlign}"/>
             <a:r>
               <a:rPr lang="ko-KR" sz="${size}" b="${bold}" dirty="0">
                 <a:solidFill><a:srgbClr val="${color}"/></a:solidFill>
@@ -3284,11 +3425,12 @@
     const size = Math.round(Number(safeStyle.fontSize || 36) * 100);
     const bold = Number(safeStyle.fontWeight) >= 700 ? "1" : "0";
     const font = escapeXml(safeStyle.fontFamily || "Georgia");
+    const pptAlign = safeStyle.textAlign ? textAlignToPpt(safeStyle.textAlign, align === "ctr" ? "center" : align === "r" ? "right" : "left") : align;
     const paragraphs = String(text || " ")
       .split(/\n/g)
       .map(
         (line) => `<a:p>
-            <a:pPr algn="${align}"/>
+            <a:pPr algn="${pptAlign}"/>
             <a:r>
               <a:rPr lang="ko-KR" sz="${size}" b="${bold}" dirty="0">
                 <a:solidFill><a:srgbClr val="${color}"/></a:solidFill>
@@ -3357,7 +3499,7 @@
     const y = position.includes("bottom") ? metrics.height - bottomInset - size : bottomInset;
     return `<p:pic>
         <p:nvPicPr><p:cNvPr id="${1100 + index}" name="Global Logo ${index}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>
-        <p:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+        <p:blipFill><a:blip r:embed="${relId}"><a:alphaModFix amt="24000"/></a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill>
         <p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${size}" cy="${size}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
       </p:pic>`;
   }
