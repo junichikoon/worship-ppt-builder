@@ -191,6 +191,10 @@ h3 {
   border-color: var(--teal);
 }
 
+.auth-action-button {
+  min-width: 72px;
+}
+
 .ghost-button {
   min-height: 34px;
   padding: 0 11px;

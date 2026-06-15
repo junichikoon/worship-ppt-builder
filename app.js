@@ -293,6 +293,7 @@
       "loginView",
       "projectSummary",
       "authBadge",
+      "authActionBtn",
       "saveTemplateBtn",
       "panelSaveTemplateBtn",
       "builderPanel",
@@ -343,6 +344,7 @@
   function bindEvents() {
     document.querySelector(".side-nav").addEventListener("click", handleMenuClick);
     els.saveTemplateBtn.addEventListener("click", () => requireAuth("save"));
+    els.authActionBtn.addEventListener("click", handleAuthAction);
     els.panelSaveTemplateBtn.addEventListener("click", () => requireAuth("save"));
     els.generatePptBtn.addEventListener("click", () => requireAuth("ppt"));
     els.shareBtn.addEventListener("click", () => requireAuth("share"));
@@ -725,6 +727,8 @@
     els.moduleCount.textContent = state.modules.length;
     els.authBadge.textContent = auth.loggedIn ? auth.email : "로그인 전";
     els.authBadge.classList.toggle("logged-in", auth.loggedIn);
+    els.authActionBtn.textContent = auth.loggedIn ? "로그아웃" : "로그인";
+    els.authActionBtn.setAttribute("aria-label", auth.loggedIn ? "로그아웃" : "로그인");
     if (document.activeElement !== els.templateNameField) {
       els.templateNameField.value = state.templateName || "새로운 템플릿";
     }
@@ -2898,6 +2902,26 @@
     state.pendingAction = action;
     persistState();
     render();
+  }
+
+  function handleAuthAction() {
+    if (!auth.loggedIn) {
+      state.view = "login";
+      state.pendingAction = null;
+      state.pendingTemplateLoad = null;
+      persistState();
+      render();
+      return;
+    }
+
+    auth = { loggedIn: false, email: "" };
+    state.view = "editor";
+    state.pendingAction = null;
+    state.pendingTemplateLoad = null;
+    persistAuth();
+    persistState();
+    render();
+    showToast("로그아웃되었습니다.");
   }
 
   function beginTemplateSaveFlow() {
