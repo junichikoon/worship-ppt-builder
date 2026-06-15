@@ -83,6 +83,13 @@ button {
   font-weight: 800;
 }
 
+.brand-mark svg {
+  width: 27px;
+  height: 27px;
+  display: block;
+  fill: currentColor;
+}
+
 h1,
 h2,
 h3,
