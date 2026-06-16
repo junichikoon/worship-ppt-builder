@@ -97,7 +97,6 @@
           <section id="templateBrowser" class="template-browser hidden" aria-label="템플릿">
             <div class="panel-header template-browser-header">
               <div>
-                <p class="eyebrow">템플릿</p>
                 <h2>템플릿</h2>
               </div>
             </div>
@@ -107,16 +106,15 @@
           <section id="settingsPanel" class="settings-panel hidden" aria-label="설정">
             <div class="panel-header">
               <div>
-                <p class="eyebrow">설정</p>
-                <h2>PPT 설정</h2>
+                <h2>설정</h2>
               </div>
             </div>
 
             <div class="settings-content">
-              <section class="settings-section">
-                <button class="settings-section-toggle" type="button" aria-expanded="true">
+              <section class="settings-section" data-settings-section="aspect">
+                <button class="settings-section-toggle" type="button" data-toggle-settings-section="aspect" aria-expanded="true">
                   <span>PPT 비율</span>
-                  <span aria-hidden="true">⌃</span>
+                  <span data-settings-section-icon aria-hidden="true">⌃</span>
                 </button>
                 <div class="settings-section-body">
                   <div class="settings-segmented" role="group" aria-label="PPT 비율">
@@ -132,10 +130,10 @@
                 </div>
               </section>
 
-              <section class="settings-section">
-                <button class="settings-section-toggle" type="button" aria-expanded="true">
+              <section class="settings-section" data-settings-section="logo">
+                <button class="settings-section-toggle" type="button" data-toggle-settings-section="logo" aria-expanded="true">
                   <span>로고</span>
-                  <span aria-hidden="true">⌃</span>
+                  <span data-settings-section-icon aria-hidden="true">⌃</span>
                 </button>
                 <div class="settings-section-body">
                   <div class="logo-toggle" role="group" aria-label="로고 이미지 사용 여부">

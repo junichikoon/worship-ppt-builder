@@ -272,9 +272,9 @@
 
   const els = {};
   let state = loadState();
+  let auth = loadAuth();
   let templates = loadTemplates();
   let recommendedTemplates = createRecommendedTemplates();
-  let auth = loadAuth();
   let currentSlides = [];
   let draggingModuleId = null;
   let toastTimer = null;
@@ -365,6 +365,7 @@
       event.preventDefault();
       auth = { loggedIn: true, email: els.emailInput.value.trim() || "demo@church.test" };
       persistAuth();
+      templates = loadTemplates();
       const nextAction = state.pendingAction;
       state.view = "editor";
       state.pendingAction = null;
@@ -586,8 +587,10 @@
       view: "editor",
       activeMenu: "builder",
       templateSections: {},
+      settingsSections: {},
       pendingAction: null,
       pendingTemplateLoad: null,
+      templatePreviewRef: null,
       templateName: "새로운 템플릿",
       currentTemplateId: "",
       presentationSettings: defaultPresentationSettings(),
@@ -609,6 +612,8 @@
         ...parsed,
         view: parsed.view === "login" ? "login" : "editor",
         activeMenu: ["builder", "templates", "settings"].includes(parsed.activeMenu) ? parsed.activeMenu : "builder",
+        settingsSections: parsed.settingsSections && typeof parsed.settingsSections === "object" ? parsed.settingsSections : {},
+        templatePreviewRef: parsed.templatePreviewRef && typeof parsed.templatePreviewRef === "object" ? parsed.templatePreviewRef : null,
         presentationSettings: {
           ...defaultState.presentationSettings,
           ...(parsed.presentationSettings && typeof parsed.presentationSettings === "object" ? parsed.presentationSettings : {}),
@@ -624,18 +629,33 @@
   }
 
   function loadTemplates() {
+    if (!auth.loggedIn) return [];
     try {
-      const raw = localStorage.getItem(TEMPLATE_KEY);
+      const storageKey = getTemplateStorageKey();
+      const scopedRaw = storageKey ? localStorage.getItem(storageKey) : "";
+      const legacyRaw = localStorage.getItem(TEMPLATE_KEY);
+      const raw = scopedRaw || legacyRaw;
       const parsed = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(parsed)) return [];
-      return parsed.map((template) => normalizeTemplateRecord(template, "saved")).filter(Boolean);
+      const normalized = parsed.map((template) => normalizeTemplateRecord(template, "saved")).filter(Boolean);
+      if (!scopedRaw && legacyRaw && storageKey) {
+        localStorage.setItem(storageKey, JSON.stringify(normalized));
+      }
+      return normalized;
     } catch (_error) {
       return [];
     }
   }
 
   function persistTemplates() {
-    localStorage.setItem(TEMPLATE_KEY, JSON.stringify(templates));
+    const storageKey = getTemplateStorageKey();
+    if (!storageKey) return;
+    localStorage.setItem(storageKey, JSON.stringify(templates));
+  }
+
+  function getTemplateStorageKey() {
+    const email = auth.loggedIn && typeof auth.email === "string" ? auth.email.trim().toLowerCase() : "";
+    return email ? `${TEMPLATE_KEY}:${email}` : "";
   }
 
   function createTemplateSnapshot(name = state.templateName || "새로운 템플릿", modules = state.modules, presentationSettings = getPresentationSettings()) {
@@ -787,6 +807,15 @@
   function renderSettingsPanel() {
     if (!els.settingsPanel) return;
     const settings = getPresentationSettings();
+    els.settingsPanel.querySelectorAll("[data-settings-section]").forEach((section) => {
+      const key = section.dataset.settingsSection;
+      const isCollapsed = isSettingsSectionCollapsed(key);
+      section.classList.toggle("is-collapsed", isCollapsed);
+      const toggle = section.querySelector("[data-toggle-settings-section]");
+      const icon = toggle?.querySelector("[data-settings-section-icon]");
+      if (toggle) toggle.setAttribute("aria-expanded", String(!isCollapsed));
+      if (icon) icon.textContent = isCollapsed ? "⌄" : "⌃";
+    });
     els.aspectWideBtn.classList.toggle("active", settings.aspectRatio === "16:9");
     els.aspectStandardBtn.classList.toggle("active", settings.aspectRatio === "4:3");
     els.logoOnBtn.classList.toggle("active", settings.logoEnabled);
@@ -805,52 +834,122 @@
 
   function renderTemplateBrowser() {
     if (!els.templateListPanel) return;
+    const previewTemplate = getTemplatePreview();
+    if (previewTemplate) {
+      els.templateListPanel.innerHTML = renderTemplatePreview(previewTemplate);
+      return;
+    }
+
     els.templateListPanel.innerHTML = `
-      ${renderTemplateSection("saved", "저장한 템플릿", templates, renderSavedTemplateCard)}
-      ${renderTemplateSection("recommended", "추천 템플릿", recommendedTemplates, renderRecommendedTemplateCard)}
+      ${renderTemplateSection("saved", "저장된 템플릿", templates, renderSavedTemplateCard, auth.loggedIn ? "저장된 템플릿이 없습니다." : "로그인 후 저장한 템플릿을 볼 수 있습니다.")}
+      ${renderTemplateSection("recommended", "모든 결과", recommendedTemplates, renderRecommendedTemplateCard, "표시할 템플릿이 없습니다.")}
     `;
   }
 
-  function renderTemplateSection(key, label, items, cardRenderer) {
-    const isCollapsed = isTemplateSectionCollapsed(key);
+  function renderTemplateSection(key, label, items, cardRenderer, emptyMessage = "저장된 템플릿이 없습니다.") {
     const body = items.length
       ? items.map(cardRenderer).join("")
-      : `<div class="empty-note">저장된 템플릿이 없습니다.</div>`;
+      : `<div class="empty-note">${escapeHtml(emptyMessage)}</div>`;
     return `
-      <section class="template-section ${isCollapsed ? "is-collapsed" : ""}" data-template-section="${key}">
-        <button class="template-section-toggle" type="button" data-toggle-template-section="${key}" aria-expanded="${!isCollapsed}">
-          <span>${escapeHtml(label)}</span>
-          <span aria-hidden="true">${isCollapsed ? "⌄" : "⌃"}</span>
-        </button>
-        ${isCollapsed ? "" : `<div class="template-section-body">${body}</div>`}
+      <section class="template-section" data-template-section="${key}">
+        <h3 class="template-section-title">${escapeHtml(label)}</h3>
+        <div class="template-section-body">${body}</div>
       </section>
     `;
   }
 
   function renderSavedTemplateCard(template) {
     return `
-      <article class="template-card" data-template-card="${template.id}" data-template-source="${template.source}">
-        <div class="template-card-main">
-          <input class="template-card-name-input" type="text" value="${escapeAttr(template.name)}" data-template-rename="${template.id}" aria-label="템플릿 이름 수정" />
-          <span class="template-card-meta">${escapeHtml(templateMeta(template))}</span>
-        </div>
-        <div class="template-card-actions">
-          <button class="icon-button danger" type="button" data-template-delete="${template.id}" aria-label="템플릿 삭제">−</button>
-        </div>
+      <article class="template-card template-thumbnail-card">
+        <button class="template-card-select" type="button" data-template-card="${template.id}" data-template-source="${template.source}" aria-label="${escapeAttr(template.name)} 미리보기">
+          ${renderTemplateCardThumbnail(template)}
+          <span class="template-card-title">${escapeHtml(template.name)}</span>
+        </button>
+        <button class="template-card-delete" type="button" data-template-delete="${template.id}" aria-label="템플릿 삭제">×</button>
       </article>
     `;
   }
 
   function renderRecommendedTemplateCard(template) {
     return `
-      <button class="template-card" type="button" data-template-card="${template.id}" data-template-source="${template.source}">
-        <span class="template-card-main">
-          <strong class="template-card-title">${escapeHtml(template.name)}</strong>
-          <span class="template-card-meta">${escapeHtml(template.meta?.description || templateMeta(template))}</span>
-        </span>
-        <span class="module-slide-chip">${template.snapshot.modules.length}개</span>
+      <button class="template-card template-thumbnail-card template-card-select" type="button" data-template-card="${template.id}" data-template-source="${template.source}" aria-label="${escapeAttr(template.name)} 미리보기">
+        ${renderTemplateCardThumbnail(template)}
+        <span class="template-card-title">${escapeHtml(template.name)}</span>
       </button>
     `;
+  }
+
+  function renderTemplateCardThumbnail(template) {
+    const slide = getTemplateSlides(template)[0];
+    if (!slide) {
+      return `<span class="template-card-thumbnail template-card-thumbnail-empty">미리보기 없음</span>`;
+    }
+    return `<span class="template-card-thumbnail">${renderCompactSlidePreview(slide, getTemplatePresentationSettings(template), "template-thumbnail-preview")}</span>`;
+  }
+
+  function renderTemplatePreview(template) {
+    const slides = getTemplateSlides(template);
+    const settings = getTemplatePresentationSettings(template);
+    const description = template.meta?.description || templateMeta(template);
+    const slideThumbs = slides.length
+      ? slides
+          .map(
+            (slide) => `
+              <div class="template-preview-slide" aria-label="${escapeAttr(slide.moduleName)} 미리보기">
+                ${renderCompactSlidePreview(slide, settings, "template-preview-slide-frame")}
+              </div>
+            `
+          )
+          .join("")
+      : `<div class="empty-note">미리보기 슬라이드가 없습니다.</div>`;
+
+    return `
+      <div class="template-preview-panel">
+        <button class="template-preview-back" type="button" data-template-preview-back>
+          <span aria-hidden="true">←</span>
+          <span>뒤로가기</span>
+        </button>
+        <div class="template-preview-heading">
+          <h3>${escapeHtml(template.name)}</h3>
+          <p>${escapeHtml(description)}</p>
+        </div>
+        <button class="template-preview-apply" type="button" data-template-apply="${template.id}" data-template-source="${template.source}">
+          적용하기
+        </button>
+        <div class="template-preview-grid">${slideThumbs}</div>
+      </div>
+    `;
+  }
+
+  function getTemplatePreview() {
+    const ref = state.templatePreviewRef;
+    if (!ref?.id) return null;
+    const template = findTemplateByRef(ref.id, ref.source);
+    if (template) return template;
+    state.templatePreviewRef = null;
+    persistState();
+    return null;
+  }
+
+  function openTemplatePreview(template) {
+    state.templatePreviewRef = {
+      id: template.id,
+      source: template.source,
+    };
+    persistState();
+    renderTemplateBrowser();
+  }
+
+  function getTemplateSlides(template) {
+    const modules = structuredCloneSafe(template.snapshot?.modules || []);
+    return buildSlidesFromModules(modules);
+  }
+
+  function getTemplatePresentationSettings(template) {
+    return {
+      ...defaultPresentationSettings(),
+      ...(template.snapshot?.presentationSettings && typeof template.snapshot.presentationSettings === "object" ? template.snapshot.presentationSettings : {}),
+    };
   }
 
   function templateMeta(template) {
@@ -861,6 +960,10 @@
 
   function isTemplateSectionCollapsed(key) {
     return Boolean(state.templateSections?.[key]);
+  }
+
+  function isSettingsSectionCollapsed(key) {
+    return Boolean(state.settingsSections?.[key]);
   }
 
   function syncSelection() {
@@ -1547,17 +1650,34 @@
     });
   }
 
-  function renderSlideFrame(content, compact = false) {
-    return `${renderLogoOverlay(compact)}${content}`;
+  function renderSlideFrame(content, compact = false, presentationSettings = getPresentationSettings()) {
+    return `${renderLogoOverlay(compact, presentationSettings)}${content}`;
   }
 
-  function renderLogoOverlay(compact = false) {
-    const settings = getPresentationSettings();
+  function renderLogoOverlay(compact = false, settings = getPresentationSettings()) {
     if (!settings.logoEnabled || !settings.logoDataUrl) return "";
     const position = ["top-left", "top-right", "bottom-left", "bottom-right"].includes(settings.logoPosition)
       ? settings.logoPosition
       : DEFAULT_LOGO_POSITION;
     return `<img class="slide-logo ${compact ? "compact " : ""}${position}" src="${escapeAttr(settings.logoDataUrl)}" alt="로고" />`;
+  }
+
+  function renderCompactSlidePreview(slide, presentationSettings = getPresentationSettings(), extraClass = "") {
+    const firstLine = slide.lines.find(Boolean) || slide.moduleName;
+    const className = `thumb-preview${extraClass ? ` ${extraClass}` : ""}`;
+    if (slide.kind === "hymn-image") {
+      return `<div class="${className} hymn-thumb-preview">${renderSlideFrame(`<img class="thumb-image-content" src="${escapeAttr(slide.imageDataUrl)}" alt="${escapeAttr(slide.imageAlt)}" />`, true, presentationSettings)}</div>`;
+    }
+    if (slide.kind === "sermon") {
+      return `<div class="${className}" style="background:${escapeAttr(toCssBackground(slide.style.background))};">${renderSlideFrame(renderSermonSlideContent(slide, true), true, presentationSettings)}</div>`;
+    }
+    if (slide.kind === "announcement-cover" || slide.kind === "announcement-list") {
+      return `<div class="${className}" style="background:${escapeAttr(toCssBackground(slide.style.background))};">${renderSlideFrame(renderAnnouncementSlideContent(slide, true), true, presentationSettings)}</div>`;
+    }
+    if (slide.kind === "custom-title" || slide.kind === "custom-content") {
+      return `<div class="${className}" style="background:${escapeAttr(toCssBackground(slide.style.background))};">${renderSlideFrame(renderCustomSlideContent(slide, true), true, presentationSettings)}</div>`;
+    }
+    return `<div class="${className}" style="background:${escapeAttr(toCssBackground(slide.style.background))}; color:${escapeAttr(slide.style.textColor)}; font-family:${escapeAttr(slide.style.fontFamily)}; text-align:${normalizeTextAlign(slide.style.textAlign, "center")};">${renderSlideFrame(`<span>${escapeHtml(firstLine)}</span>`, true, presentationSettings)}</div>`;
   }
 
   function renderPreview() {
@@ -1623,15 +1743,7 @@
           .map((slide) => {
             slideNumber += 1;
             const firstLine = slide.lines.find(Boolean) || slide.moduleName;
-            const preview = slide.kind === "hymn-image"
-              ? `<div class="thumb-preview hymn-thumb-preview">${renderSlideFrame(`<img class="thumb-image-content" src="${escapeAttr(slide.imageDataUrl)}" alt="${escapeAttr(slide.imageAlt)}" />`, true)}</div>`
-              : slide.kind === "sermon"
-                ? `<div class="thumb-preview" style="background:${escapeAttr(toCssBackground(slide.style.background))};">${renderSlideFrame(renderSermonSlideContent(slide, true), true)}</div>`
-              : slide.kind === "announcement-cover" || slide.kind === "announcement-list"
-                ? `<div class="thumb-preview" style="background:${escapeAttr(toCssBackground(slide.style.background))};">${renderSlideFrame(renderAnnouncementSlideContent(slide, true), true)}</div>`
-              : slide.kind === "custom-title" || slide.kind === "custom-content"
-                ? `<div class="thumb-preview" style="background:${escapeAttr(toCssBackground(slide.style.background))};">${renderSlideFrame(renderCustomSlideContent(slide, true), true)}</div>`
-              : `<div class="thumb-preview" style="background:${escapeAttr(toCssBackground(slide.style.background))}; color:${slide.style.textColor}; font-family:${escapeAttr(slide.style.fontFamily)}; text-align:${normalizeTextAlign(slide.style.textAlign, "center")};">${renderSlideFrame(`<span>${escapeHtml(firstLine)}</span>`, true)}</div>`;
+            const preview = renderCompactSlidePreview(slide);
             return `
               <button class="thumb ${slide.id === state.selectedSlideId ? "active" : ""}" type="button" data-slide-id="${slide.id}" data-module-id="${slide.moduleId}" title="${escapeAttr(firstLine)}">
                 ${preview}
@@ -1654,8 +1766,12 @@
   }
 
   function buildSlides() {
+    return buildSlidesFromModules(state.modules);
+  }
+
+  function buildSlidesFromModules(modules) {
     const slides = [];
-    state.modules.forEach((module) => {
+    modules.forEach((module) => {
       if (module.type === "hymn") {
         slides.push(buildHymnSlide(module));
         return;
@@ -2099,6 +2215,16 @@
   }
 
   function handleSettingsPanelClick(event) {
+    const sectionToggle = event.target.closest("[data-toggle-settings-section]");
+    if (sectionToggle) {
+      state.settingsSections = state.settingsSections || {};
+      const key = sectionToggle.dataset.toggleSettingsSection;
+      state.settingsSections[key] = !isSettingsSectionCollapsed(key);
+      persistState();
+      renderSettingsPanel();
+      return;
+    }
+
     const aspectButton = event.target.closest("[data-aspect-ratio]");
     if (aspectButton) {
       state.presentationSettings.aspectRatio = aspectButton.dataset.aspectRatio === "4:3" ? "4:3" : "16:9";
@@ -2149,6 +2275,21 @@
   }
 
   function handleTemplatePanelClick(event) {
+    const back = event.target.closest("[data-template-preview-back]");
+    if (back) {
+      state.templatePreviewRef = null;
+      persistState();
+      renderTemplateBrowser();
+      return;
+    }
+
+    const apply = event.target.closest("[data-template-apply]");
+    if (apply) {
+      const template = findTemplateByRef(apply.dataset.templateApply, apply.dataset.templateSource);
+      if (template) requestTemplateLoad(template);
+      return;
+    }
+
     const toggle = event.target.closest("[data-toggle-template-section]");
     if (toggle) {
       state.templateSections = state.templateSections || {};
@@ -2169,6 +2310,9 @@
       if (state.currentTemplateId === template.id) {
         state.currentTemplateId = "";
       }
+      if (state.templatePreviewRef?.id === template.id) {
+        state.templatePreviewRef = null;
+      }
       persistTemplates();
       persistState();
       renderTemplateBrowser();
@@ -2179,7 +2323,7 @@
     const card = event.target.closest("[data-template-card]");
     if (card && !event.target.closest("input")) {
       const template = findTemplateByRef(card.dataset.templateCard, card.dataset.templateSource);
-      if (template) requestTemplateLoad(template);
+      if (template) openTemplatePreview(template);
     }
   }
 
@@ -2205,7 +2349,7 @@
   }
 
   function requestTemplateLoad(template) {
-    if (isWorkspaceAtDefaultState()) {
+    if (!hasUnsavedWorkspaceChanges()) {
       loadTemplate(template);
       return;
     }
@@ -2246,6 +2390,7 @@
     state.activeMenu = "builder";
     state.pendingAction = null;
     state.pendingTemplateLoad = null;
+    state.templatePreviewRef = null;
     persistState();
     render();
     showToast("템플릿을 불러왔습니다.");
@@ -2264,6 +2409,31 @@
     }
     loadTemplate(template);
     return true;
+  }
+
+  function hasUnsavedWorkspaceChanges() {
+    const currentTemplate = getCurrentSavedTemplate();
+    if (currentTemplate) {
+      return !isWorkspaceMatchingTemplate(currentTemplate);
+    }
+    return !isWorkspaceAtDefaultState();
+  }
+
+  function isWorkspaceMatchingTemplate(template) {
+    const snapshot = template?.snapshot;
+    if (!snapshot || !Array.isArray(snapshot.modules)) return false;
+    const currentComparable = {
+      modules: state.modules,
+      presentationSettings: getPresentationSettings(),
+    };
+    const templateComparable = {
+      modules: snapshot.modules,
+      presentationSettings: {
+        ...defaultPresentationSettings(),
+        ...(snapshot.presentationSettings && typeof snapshot.presentationSettings === "object" ? snapshot.presentationSettings : {}),
+      },
+    };
+    return stableStringifyForTemplateCompare(currentComparable) === stableStringifyForTemplateCompare(templateComparable);
   }
 
   function isWorkspaceAtDefaultState() {
@@ -2915,9 +3085,12 @@
     }
 
     auth = { loggedIn: false, email: "" };
+    templates = [];
     state.view = "editor";
     state.pendingAction = null;
     state.pendingTemplateLoad = null;
+    state.templatePreviewRef = null;
+    state.currentTemplateId = "";
     persistAuth();
     persistState();
     render();
