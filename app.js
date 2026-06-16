@@ -842,7 +842,7 @@
 
     els.templateListPanel.innerHTML = `
       ${renderTemplateSection("saved", "저장된 템플릿", templates, renderSavedTemplateCard, auth.loggedIn ? "저장된 템플릿이 없습니다." : "로그인 후 저장한 템플릿을 볼 수 있습니다.")}
-      ${renderTemplateSection("recommended", "모든 결과", recommendedTemplates, renderRecommendedTemplateCard, "표시할 템플릿이 없습니다.")}
+      ${renderTemplateSection("recommended", "추천 템플릿", recommendedTemplates, renderRecommendedTemplateCard, "표시할 템플릿이 없습니다.")}
     `;
   }
 
