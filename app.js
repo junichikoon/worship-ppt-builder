@@ -3122,7 +3122,7 @@
 
   function closeTemplateModal() {
     els.templateModal.classList.add("hidden");
-    if (state.pendingAction === "save-before-template-load" || state.pendingTemplateLoad) {
+    if (state.pendingAction === "save-before-template-load" || state.pendingAction === "reset-after-save" || state.pendingTemplateLoad) {
       state.pendingAction = null;
       state.pendingTemplateLoad = null;
       persistState();
@@ -3142,6 +3142,14 @@
     persistTemplates();
     persistState();
     els.templateModal.classList.add("hidden");
+    if (state.pendingAction === "reset-after-save") {
+      state.pendingAction = null;
+      persistState();
+      if (confirmResetDemo()) return;
+      render();
+      showToast("템플릿을 저장했습니다.");
+      return;
+    }
     if (loadPendingTemplateAfterSave()) return;
     render();
     showToast("템플릿을 저장했습니다.");
@@ -3169,7 +3177,7 @@
     showToast("공유 링크를 복사했습니다.");
   }
 
-  function overwriteTemplate(template) {
+  function overwriteTemplate(template, options = {}) {
     const name = createUniqueTemplateName(state.templateName || template.name || "새로운 템플릿", template.id);
     const nextTemplate = createTemplateRecord({
       id: template.id,
@@ -3189,8 +3197,12 @@
     state.currentTemplateId = nextTemplate.id;
     persistTemplates();
     persistState();
-    render();
-    showToast("템플릿을 덮어썼습니다.");
+    if (options.renderAfter !== false) {
+      render();
+    }
+    if (options.showToastAfter !== false) {
+      showToast("템플릿을 덮어썼습니다.");
+    }
   }
 
   function createUniqueTemplateName(baseName, ignoreId = "") {
@@ -3211,12 +3223,35 @@
   }
 
   function resetDemo() {
+    const currentTemplate = getCurrentSavedTemplate();
+    if (currentTemplate && !isWorkspaceMatchingTemplate(currentTemplate)) {
+      const shouldOverwrite = window.confirm("초기화 전에 현재 템플릿에 덮어쓸까요?");
+      if (shouldOverwrite) {
+        overwriteTemplate(currentTemplate, { renderAfter: false, showToastAfter: false });
+        confirmResetDemo();
+        return;
+      }
+
+      const shouldSaveAsNew = window.confirm("변경된 내용을 새 템플릿으로 저장할까요?");
+      if (shouldSaveAsNew) {
+        state.pendingAction = "reset-after-save";
+        persistState();
+        openTemplateModal();
+        return;
+      }
+    }
+
+    confirmResetDemo();
+  }
+
+  function confirmResetDemo() {
     const ok = window.confirm("현재 작업을 초기 샘플로 되돌릴까요?");
-    if (!ok) return;
+    if (!ok) return false;
     state = makeDefaultState();
     persistState();
     render();
     showToast("초기 샘플로 되돌렸습니다.");
+    return true;
   }
 
   function downloadPpt() {
