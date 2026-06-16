@@ -890,7 +890,7 @@
   function renderTemplatePreview(template) {
     const slides = getTemplateSlides(template);
     const settings = getTemplatePresentationSettings(template);
-    const description = template.meta?.description || templateMeta(template);
+    const description = templatePreviewDescription(template);
     const slideThumbs = slides.length
       ? slides
           .map(
@@ -950,6 +950,13 @@
       ...defaultPresentationSettings(),
       ...(template.snapshot?.presentationSettings && typeof template.snapshot.presentationSettings === "object" ? template.snapshot.presentationSettings : {}),
     };
+  }
+
+  function templatePreviewDescription(template) {
+    const settings = getTemplatePresentationSettings(template);
+    const baseDescription = template.meta?.description || templateMeta(template);
+    const hasLogo = Boolean(settings.logoEnabled && settings.logoDataUrl);
+    return `${baseDescription} · PPT 비율: ${settings.aspectRatio} · 로고: ${hasLogo ? "있음" : "없음"}`;
   }
 
   function templateMeta(template) {
@@ -2354,16 +2361,33 @@
       return;
     }
 
-    const shouldSave = window.confirm("현재 작업을 저장하시겠습니까?");
-    if (!shouldSave) {
-      loadTemplate(template);
-      return;
-    }
-
     state.pendingTemplateLoad = {
       id: template.id,
       source: template.source,
     };
+
+    const currentTemplate = getCurrentSavedTemplate();
+    if (currentTemplate && !isWorkspaceMatchingTemplate(currentTemplate)) {
+      const shouldOverwrite = window.confirm("현재 템플릿에 덮어쓸까요?");
+      if (shouldOverwrite) {
+        overwriteTemplate(currentTemplate, { renderAfter: false, showToastAfter: false });
+        loadPendingTemplateAfterSave();
+        return;
+      }
+
+      const shouldSaveAsNew = window.confirm("변경된 내용을 새 템플릿으로 저장할까요?");
+      if (!shouldSaveAsNew) {
+        loadPendingTemplateAfterSave();
+        return;
+      }
+    } else {
+      const shouldSave = window.confirm("현재 작업을 저장하시겠습니까?");
+      if (!shouldSave) {
+        loadPendingTemplateAfterSave();
+        return;
+      }
+    }
+
     state.pendingAction = "save-before-template-load";
     if (!auth.loggedIn) {
       state.view = "login";
