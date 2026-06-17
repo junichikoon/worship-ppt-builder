@@ -330,6 +330,7 @@ h3 {
 }
 
 .settings-panel {
+  display: block;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;

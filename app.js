@@ -2810,6 +2810,7 @@
       module[customModuleField.dataset.customField] = customModuleField.value;
       if (customModuleField.dataset.customField === "customContentTitle" || customModuleField.dataset.customField === "customContentText") {
         module.customPresetId = "";
+        clearCustomPresetHighlight(module.id);
       }
       state.selectedModuleId = module.id;
       state.selectedSlideId = `${module.id}-slide-0`;
@@ -2885,6 +2886,14 @@
     renderPreview();
     renderThumbnails();
     persistState();
+  }
+
+  function clearCustomPresetHighlight(moduleId) {
+    els.moduleList.querySelectorAll("[data-custom-preset]").forEach((button) => {
+      if (button.dataset.moduleId === moduleId) {
+        button.classList.remove("active");
+      }
+    });
   }
 
   function handleModuleChange(event) {
