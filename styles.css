@@ -329,6 +329,13 @@ h3 {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+.settings-panel {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .panel-header,
 .preview-header {
   display: flex;
@@ -1404,9 +1411,7 @@ textarea {
   align-content: start;
   gap: 14px;
   padding: 16px 18px 24px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: visible;
 }
 
 .settings-section {
