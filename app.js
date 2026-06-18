@@ -2667,6 +2667,8 @@
       const module = findModule(background.dataset.moduleId);
       if (!module) return;
       module.style.background = background.dataset.background;
+      state.selectedModuleId = module.id;
+      state.selectedSlideId = currentSlides.find((slide) => slide.moduleId === module.id)?.id || "";
       render();
       return;
     }
